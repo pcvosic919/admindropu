@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { getReports, scheduleReport, type Report } from '../services/api'
+import { getReports, scheduleReport, generateReport, type Report } from '../services/api'
 import {
   FileText, Search, Calendar, Download, Clock, RefreshCw, X, CheckCircle2
 } from 'lucide-react'
 import clsx from 'clsx'
+import { useLanguage } from '../contexts/LanguageContext'
 
 const CATEGORY_COLORS: Record<string, string> = {
   Identity: 'bg-blue-100 text-blue-700',
@@ -32,6 +33,8 @@ interface ScheduleModalProps {
 }
 
 function ScheduleModal({ report, onClose }: ScheduleModalProps) {
+  const { t } = useLanguage()
+  const rp = t.reports
   const [frequency, setFrequency] = useState('Weekly')
   const [time, setTime] = useState('09:00')
   const [recipients, setRecipients] = useState('admin@contoso.onmicrosoft.com')
@@ -48,12 +51,12 @@ function ScheduleModal({ report, onClose }: ScheduleModalProps) {
       <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 text-center" onClick={e => e.stopPropagation()}>
           <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto mb-3" />
-          <h3 className="text-lg font-bold text-gray-900 mb-1">Report Scheduled!</h3>
+          <h3 className="text-lg font-bold text-gray-900 mb-1">{rp.success_title}</h3>
           <p className="text-sm text-gray-500 mb-4">
-            "{report.name}" will run <strong>{frequency}</strong> at <strong>{time}</strong> and delivered as <strong>{format}</strong>.
+            "{report.name}" {rp.success_desc_will} <strong>{frequency}</strong> {rp.success_desc_run} <strong>{format}</strong>.
           </p>
           <button onClick={onClose} className="px-6 py-2 bg-ms-blue text-white rounded-lg text-sm font-medium hover:bg-ms-blue-dark">
-            Done
+            {rp.done}
           </button>
         </div>
       </div>
@@ -64,7 +67,7 @@ function ScheduleModal({ report, onClose }: ScheduleModalProps) {
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h3 className="text-base font-bold text-gray-900">Schedule Report</h3>
+          <h3 className="text-base font-bold text-gray-900">{rp.scheduleTitle}</h3>
           <button onClick={onClose} className="p-1 rounded hover:bg-gray-100 text-gray-400"><X className="w-4 h-4" /></button>
         </div>
         <div className="px-6 py-5 space-y-4">
@@ -75,19 +78,19 @@ function ScheduleModal({ report, onClose }: ScheduleModalProps) {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-xs font-semibold text-gray-600 block mb-1">Frequency</label>
+              <label className="text-xs font-semibold text-gray-600 block mb-1">{rp.frequency}</label>
               <select value={frequency} onChange={e => setFrequency(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-ms-blue">
-                {['Daily', 'Weekly', 'Monthly'].map(f => <option key={f}>{f}</option>)}
+                {[rp.daily, rp.weekly, rp.monthly].map(f => <option key={f}>{f}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-xs font-semibold text-gray-600 block mb-1">Time (UTC+8)</label>
+              <label className="text-xs font-semibold text-gray-600 block mb-1">{rp.time}</label>
               <input type="time" value={time} onChange={e => setTime(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-ms-blue" />
             </div>
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-gray-600 block mb-1">Recipients (comma separated)</label>
+            <label className="text-xs font-semibold text-gray-600 block mb-1">{rp.recipients}</label>
             <input
               type="text"
               value={recipients}
@@ -98,7 +101,7 @@ function ScheduleModal({ report, onClose }: ScheduleModalProps) {
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-gray-600 block mb-1">Format</label>
+            <label className="text-xs font-semibold text-gray-600 block mb-1">{rp.format}</label>
             <div className="flex gap-2">
               {['Excel', 'CSV', 'PDF'].map(f => (
                 <button
@@ -117,7 +120,7 @@ function ScheduleModal({ report, onClose }: ScheduleModalProps) {
         </div>
 
         <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
+          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">{rp.cancel}</button>
           <button
             onClick={() => mutation.mutate({
               reportId: report.id,
@@ -130,7 +133,7 @@ function ScheduleModal({ report, onClose }: ScheduleModalProps) {
             className="flex items-center gap-2 px-4 py-2 bg-ms-blue text-white rounded-lg text-sm font-medium hover:bg-ms-blue-dark disabled:opacity-60"
           >
             {mutation.isPending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Calendar className="w-4 h-4" />}
-            Schedule
+            {rp.schedule}
           </button>
         </div>
       </div>
@@ -139,9 +142,12 @@ function ScheduleModal({ report, onClose }: ScheduleModalProps) {
 }
 
 export default function Reports() {
+  const { t } = useLanguage()
+  const rp = t.reports
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('All')
   const [schedulingReport, setSchedulingReport] = useState<Report | null>(null)
+  const [generating, setGenerating] = useState<string | null>(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['reports', search, category],
@@ -151,9 +157,18 @@ export default function Reports() {
     }),
   })
 
+  const handleGenerate = async (report: Report) => {
+    setGenerating(report.id)
+    try {
+      await generateReport(report.id, report.name)
+    } finally {
+      setGenerating(null)
+    }
+  }
+
   if (isLoading) return (
     <div className="flex items-center justify-center h-64">
-      <RefreshCw className="w-5 h-5 animate-spin text-gray-400 mr-2" /><span className="text-gray-500">Loading reports...</span>
+      <RefreshCw className="w-5 h-5 animate-spin text-gray-400 mr-2" /><span className="text-gray-500">{t.common.loading}</span>
     </div>
   )
 
@@ -168,7 +183,7 @@ export default function Reports() {
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
-            placeholder="Search reports..."
+            placeholder={rp.search}
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-ms-blue"
@@ -194,15 +209,15 @@ export default function Reports() {
       <div className="grid grid-cols-3 gap-3">
         <div className="bg-white rounded-xl border border-gray-200 p-4 text-center shadow-sm">
           <div className="text-2xl font-bold text-ms-blue">{data?.total ?? 0}</div>
-          <div className="text-xs text-gray-500 mt-0.5">Total Reports</div>
+          <div className="text-xs text-gray-500 mt-0.5">{rp.total}</div>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-4 text-center shadow-sm">
           <div className="text-2xl font-bold text-green-600">{reports.filter((r: Report) => r.isScheduled).length}</div>
-          <div className="text-xs text-gray-500 mt-0.5">Scheduled</div>
+          <div className="text-xs text-gray-500 mt-0.5">{rp.scheduled}</div>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-4 text-center shadow-sm">
           <div className="text-2xl font-bold text-orange-600">{reports.filter((r: Report) => r.lastGenerated).length}</div>
-          <div className="text-xs text-gray-500 mt-0.5">Generated This Month</div>
+          <div className="text-xs text-gray-500 mt-0.5">{rp.generated}</div>
         </div>
       </div>
 
@@ -217,7 +232,7 @@ export default function Reports() {
                   <span className="text-sm font-semibold text-gray-800 leading-tight">{report.name}</span>
                 </div>
                 {report.isScheduled && (
-                  <span className="flex-shrink-0 text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-medium">Scheduled</span>
+                  <span className="flex-shrink-0 text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-medium">{rp.scheduled_badge}</span>
                 )}
               </div>
               <p className="text-xs text-gray-500 mb-3 leading-relaxed">{report.description}</p>
@@ -230,14 +245,21 @@ export default function Reports() {
               )}
             </div>
             <div className="px-4 py-3 border-t border-gray-100 flex gap-2">
-              <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-ms-blue border border-ms-blue rounded-lg hover:bg-blue-50 transition-colors">
-                <Download className="w-3 h-3" /> Generate
+              <button
+                onClick={() => handleGenerate(report)}
+                disabled={generating === report.id}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-ms-blue border border-ms-blue rounded-lg hover:bg-blue-50 transition-colors disabled:opacity-60"
+              >
+                {generating === report.id
+                  ? <><RefreshCw className="w-3 h-3 animate-spin" /> {rp.generating}</>
+                  : <><Download className="w-3 h-3" /> {rp.generate}</>
+                }
               </button>
               <button
                 onClick={() => setSchedulingReport(report)}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
               >
-                <Calendar className="w-3 h-3" /> Schedule
+                <Calendar className="w-3 h-3" /> {rp.schedule}
               </button>
             </div>
           </div>

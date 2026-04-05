@@ -262,6 +262,16 @@ export const getReport = (id: string) =>
 export const scheduleReport = (body: { reportId: string; frequency: string; time: string; recipients: string[]; format: string }) =>
   api.post('/reports/schedule', body).then(r => r.data)
 
+export const generateReport = async (reportId: string, reportName: string) => {
+  const response = await api.get(`/reports/${reportId}/generate`, { responseType: 'blob' })
+  const url = window.URL.createObjectURL(new Blob([response.data]))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${reportName.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.csv`
+  a.click()
+  window.URL.revokeObjectURL(url)
+}
+
 // ─── Account Audit ────────────────────────────────────────────────────────
 
 export const triggerScan = () =>

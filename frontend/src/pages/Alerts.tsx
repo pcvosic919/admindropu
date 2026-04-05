@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getAlerts, updateAlertStatus, type Alert, type AlertStatus } from '../services/api'
 import { Bell, X, RefreshCw, AlertTriangle, ChevronRight, Clock, MapPin, Monitor } from 'lucide-react'
 import clsx from 'clsx'
+import { useLanguage } from '../contexts/LanguageContext'
 
 function SeverityBadge({ severity }: { severity: string }) {
   const cls = {
@@ -28,6 +29,8 @@ const SEVERITIES = ['All', 'Critical', 'High', 'Medium', 'Low']
 const STATUSES = ['All', 'Open', 'Investigating', 'Closed']
 
 export default function Alerts() {
+  const { t } = useLanguage()
+  const al = t.alerts
   const [statusFilter, setStatusFilter] = useState('All')
   const [severityFilter, setSeverityFilter] = useState('All')
   const [serviceFilter, setServiceFilter] = useState('All')
@@ -53,13 +56,13 @@ export default function Alerts() {
 
   if (isLoading) return (
     <div className="flex items-center justify-center h-64">
-      <RefreshCw className="w-5 h-5 animate-spin text-gray-400 mr-2" /><span className="text-gray-500">Loading alerts...</span>
+      <RefreshCw className="w-5 h-5 animate-spin text-gray-400 mr-2" /><span className="text-gray-500">{t.common.loading}</span>
     </div>
   )
 
   if (error || !data) return (
     <div className="flex items-center justify-center h-64 text-red-500">
-      <AlertTriangle className="w-5 h-5 mr-2" /><span>Failed to load alerts. Backend may not be running.</span>
+      <AlertTriangle className="w-5 h-5 mr-2" /><span>{t.common.error}</span>
     </div>
   )
 
@@ -124,7 +127,7 @@ export default function Alerts() {
             </select>
 
             <button onClick={() => refetch()} className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-sm text-gray-600 hover:bg-gray-50">
-              <RefreshCw className="w-3.5 h-3.5" /> Refresh
+              <RefreshCw className="w-3.5 h-3.5" /> {t.common.refresh}
             </button>
           </div>
         </div>
@@ -134,11 +137,11 @@ export default function Alerts() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Severity</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Alert Title</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Service</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Triggered</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{al.severity}</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{al.title ?? 'Alert Title'}</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{al.service}</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{al.time}</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{al.status}</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide"></th>
               </tr>
             </thead>
@@ -175,7 +178,7 @@ export default function Alerts() {
       {selectedAlert && (
         <div className="w-96 flex-shrink-0 bg-white border-l border-gray-200 flex flex-col overflow-y-auto">
           <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-            <h3 className="font-semibold text-gray-800 text-sm">Alert Detail</h3>
+            <h3 className="font-semibold text-gray-800 text-sm">{al.details}</h3>
             <button onClick={() => setSelectedAlert(null)} className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600">
               <X className="w-4 h-4" />
             </button>
@@ -196,22 +199,22 @@ export default function Alerts() {
             <div className="space-y-2 text-xs text-gray-600 bg-gray-50 rounded-lg p-3">
               <div className="flex items-center gap-2">
                 <Bell className="w-3.5 h-3.5 text-gray-400" />
-                <span className="text-gray-400">Service:</span>
+                <span className="text-gray-400">{al.service}:</span>
                 <span className="font-medium">{selectedAlert.service}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Clock className="w-3.5 h-3.5 text-gray-400" />
-                <span className="text-gray-400">Triggered:</span>
+                <span className="text-gray-400">{al.time}:</span>
                 <span className="font-medium">{new Date(selectedAlert.triggeredAt).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Monitor className="w-3.5 h-3.5 text-gray-400" />
-                <span className="text-gray-400">Affected User:</span>
+                <span className="text-gray-400">{al.affectedUser}:</span>
                 <span className="font-medium truncate">{selectedAlert.affectedUser}</span>
               </div>
               <div className="flex items-center gap-2">
                 <MapPin className="w-3.5 h-3.5 text-gray-400" />
-                <span className="text-gray-400">Location:</span>
+                <span className="text-gray-400">{al.location}:</span>
                 <span className="font-medium">{selectedAlert.location}</span>
               </div>
               <div className="flex items-center gap-2">
