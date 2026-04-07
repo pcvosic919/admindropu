@@ -1,16 +1,44 @@
 "use client";
 
-import { useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { Settings, Shield, X, LogIn } from "lucide-react";
+
+type LoginMessage = {
+  type: "success" | "error";
+  text: string;
+};
 
 export default function LoginPage() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isAccountLoginOpen, setIsAccountLoginOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [message, setMessage] = useState<LoginMessage | null>(null);
   const [settings, setSettings] = useState({
     tenantId: "",
     clientId: "",
     clientSecret: "",
     redirectUri: "",
   });
+  const [accountForm, setAccountForm] = useState({
+    email: "",
+    password: "",
+  });
+
+  const ssoAuthorizationUrl = useMemo(() => {
+    if (!settings.tenantId || !settings.clientId || !settings.redirectUri) {
+      return "";
+    }
+
+    const query = new URLSearchParams({
+      client_id: settings.clientId,
+      response_type: "code",
+      redirect_uri: settings.redirectUri,
+      response_mode: "query",
+      scope: "openid profile email offline_access",
+    });
+
+    return `https://login.microsoftonline.com/${settings.tenantId}/oauth2/v2.0/authorize?${query.toString()}`;
+  }, [settings.clientId, settings.redirectUri, settings.tenantId]);
 
   const handleSettingsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSettings({
@@ -19,10 +47,56 @@ export default function LoginPage() {
     });
   };
 
+  const handleAccountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setAccountForm({
+      ...accountForm,
+      [e.target.name]: e.target.value,
+    });
+  };
+
   const saveSettings = () => {
-    // In a real app, you might save this to localStorage or send to backend
-    console.log("Settings saved:", settings);
+    setMessage({
+      type: "success",
+      text: "已儲存 SSO 設定，現在可以點擊 Microsoft Entra ID 登入。",
+    });
     setIsSettingsOpen(false);
+  };
+
+  const handleSsoLogin = () => {
+    if (!ssoAuthorizationUrl) {
+      setMessage({
+        type: "error",
+        text: "請先在右上角設定 Tenant ID、Client ID 與 Redirect URI。",
+      });
+      setIsSettingsOpen(true);
+      return;
+    }
+
+    window.location.href = ssoAuthorizationUrl;
+  };
+
+  const handleAccountLogin = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    if (!accountForm.email || !accountForm.password) {
+      setMessage({ type: "error", text: "請輸入帳號與密碼。" });
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      setMessage({
+        type: "success",
+        text: `一般帳號登入成功：${accountForm.email}`,
+      });
+      setIsAccountLoginOpen(false);
+    } catch {
+      setMessage({ type: "error", text: "登入失敗，請稍後再試。" });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -57,6 +131,7 @@ export default function LoginPage() {
             <div>
               <button
                 type="button"
+                onClick={handleSsoLogin}
                 className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 gap-2"
               >
                 <LogIn className="w-5 h-5" />
@@ -78,11 +153,22 @@ export default function LoginPage() {
             <div>
               <button
                 type="button"
+                onClick={() => setIsAccountLoginOpen(true)}
                 className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
                 Trial / 一般帳號登入
               </button>
             </div>
+
+            {message && (
+              <p
+                className={`text-sm ${
+                  message.type === "success" ? "text-green-600" : "text-red-600"
+                }`}
+              >
+                {message.text}
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -215,6 +301,71 @@ export default function LoginPage() {
                   取消
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isAccountLoginOpen && (
+        <div className="fixed inset-0 z-10 overflow-y-auto">
+          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 transition-opacity z-[-1]" aria-hidden="true">
+              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
+
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">
+              &#8203;
+            </span>
+
+            <div className="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-md sm:w-full sm:p-6">
+              <div className="hidden sm:block absolute top-0 right-0 pt-4 pr-4">
+                <button
+                  type="button"
+                  className="bg-white rounded-md text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  onClick={() => setIsAccountLoginOpen(false)}
+                >
+                  <span className="sr-only">關閉</span>
+                  <X className="h-6 w-6" aria-hidden="true" />
+                </button>
+              </div>
+              <h3 className="text-lg leading-6 font-medium text-gray-900">一般帳號登入</h3>
+              <form className="mt-4 space-y-4" onSubmit={handleAccountLogin}>
+                <div>
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    id="email"
+                    value={accountForm.email}
+                    onChange={handleAccountChange}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-gray-900"
+                    placeholder="demo@howardai.studio"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                    Password
+                  </label>
+                  <input
+                    type="password"
+                    name="password"
+                    id="password"
+                    value={accountForm.password}
+                    onChange={handleAccountChange}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-gray-900"
+                    placeholder="••••••••"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 disabled:bg-blue-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:text-sm"
+                >
+                  {isSubmitting ? "登入中..." : "登入"}
+                </button>
+              </form>
             </div>
           </div>
         </div>
